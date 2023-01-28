@@ -1,0 +1,25 @@
+# mypy
+# ruff
+# flake8
+# pylint
+# black
+# isort
+# bandit
+# safety
+
+
+# without optional dependencies
+fastapi
+# minimal pure python dependencies
+uvicorn[standard]
+python-decouple
+pydantic
+SQLAlchemy
+alembic
+tenacity
+Faker
+psycopg2
+email-validator
+
+httpx
+pytest

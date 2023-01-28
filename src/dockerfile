@@ -1,0 +1,32 @@
+FROM python:3.10.9-slim-bullseye
+
+# /code exist because, if using with docker compose file
+# mounting volume happens before changing directory via WORKDIR
+
+WORKDIR /code
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        python3-dev \
+        libpq-dev \
+        netcat \
+    && apt-get clean
+
+COPY ./requirements.txt /code/src/requirements.txt
+
+RUN pip install -r /code/src/requirements.txt
+# RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+# not required if code folder is mounted as volume in `app` service via docker compose file
+# COPY ./app.py /code/app.py
+
+# entrypoint.sh needs execute permission on host by your local user at least
+# this copy won't be required because working directory is mounted via docker compose but
+# since is used in entrypoint statement, is required
+COPY ./entrypoint.sh /code/src/entrypoint.sh
+ENTRYPOINT [ "/code/src/entrypoint.sh" ]
+# for development
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
+# for production
+# CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]

@@ -1,0 +1,164 @@
+
+services:
+  db:
+    # prefer explicit (semantic versioning) than implicit (latest tag)
+    image: postgres:15.1
+    container_name: db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - PGDATA=/var/lib/postgresql/data/
+    volumes:
+      - postgresql_db_data:/var/lib/postgresql/data/
+    expose:
+      - 5432
+    ports:
+      - 5433:5432
+
+
+  dbadm:
+    image: dpage/pgadmin4
+    container_name: dbadm
+    networks:
+      - default
+      # - outside
+    depends_on:
+      - db
+    environment:
+      - PGADMIN_LISTEN_PORT=${PGADMIN_LISTEN_PORT}
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "5050:5050"
+
+
+  app:
+    container_name: app
+    restart: unless-stopped
+    build:
+      dockerfile: dockerfile
+      context: src
+    # for development
+    # command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
+    # for production
+    # command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
+    command:
+      - "uvicorn"
+      - "src.main:app"
+      - "--host=0.0.0.0"
+      - "--port=80"
+      # for development
+      # `--reload` restart fastAPI app without restart containers / services by docker,
+      - "--reload"
+      # for production
+      # - "--workers=4"
+    # command:
+    #   - "python"
+    #   - "/code/src/main.py"
+    # command:
+    #   - "python"
+    #   - "-m"
+    #   - "src.main"
+    environment:
+      - PROJECT_NAME=${PROJECT_NAME}
+      - DEBUG=${DEBUG}
+      - SERVER_HOST=${SERVER_HOST}
+      - SERVER_PORT=${SERVER_PORT}
+      - SERVER_WORKERS=${SERVER_WORKERS}
+      - IS_ALLOWED_CREDENTIALS=${IS_ALLOWED_CREDENTIALS}
+      - POSTGRES_SCHEMA=${POSTGRES_SCHEMA}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USERNAME=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - LOGGING_FORMAT=${LOGGING_FORMAT}
+      - LOGGING_STYLE=${LOGGING_STYLE}
+    volumes:
+      # - .:/code # 🗸
+      - ./src:/code/src # 🗸
+      # .dockerignore `.venv` pattern is ommitted because is mounting the folder
+    expose:
+      # - < container port > (not host port)
+      - 80
+    ports:
+      # - < host port >:< container port >
+      - 80:80
+    depends_on:
+      - db
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.whoami.rule=Host(`whoami.example.com`)"
+    #   - "traefik.http.routers.whoami.entrypoints=websecure"
+    #   - "traefik.http.routers.whoami.tls.certresolver=myresolver"
+
+
+  # TODO `tests` service to run testing suite on app
+  # still on draft
+  tests:
+    container_name: tests
+    restart: unless-stopped
+    build:
+      dockerfile: dockerfile
+      context: src
+    command:
+      - "pytest"
+      - "-s"
+      - "src/tests"
+      # - "src/tests/test_users.py"
+    environment:
+      - PROJECT_NAME=${PROJECT_NAME}
+      - DEBUG=${DEBUG}
+      - SERVER_HOST=${SERVER_HOST}
+      - SERVER_PORT=${SERVER_PORT}
+      - SERVER_WORKERS=${SERVER_WORKERS}
+      - IS_ALLOWED_CREDENTIALS=${IS_ALLOWED_CREDENTIALS}
+      - POSTGRES_SCHEMA=${POSTGRES_SCHEMA}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USERNAME=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - LOGGING_FORMAT=${LOGGING_FORMAT}
+      - LOGGING_STYLE=${LOGGING_STYLE}
+    volumes:
+      - ./src:/code/src # 🗸
+    # depends_on:
+    #   - db
+
+
+  # TODO `codequality` service to run complementary tools about code quality
+  # codequality:
+
+
+volumes:
+  postgresql_db_data:
+
+# networks:
+#   outside:
+#     external: true
+#     # Allow setting it to false for testing
+#     # external: ${TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL-true}
+
+  # proxy:
+  #   image: traefik:v2.9.6
+  #   # image: traefik:v3.0.0-beta2
+  #   container_name: proxy
+  #   command:
+  #     #- "--log.level=DEBUG"
+  #     - "--api.insecure=true"
+  #     - "--providers.docker=true"
+  #     - "--providers.docker.exposedbydefault=false"
+  #     - "--entrypoints.websecure.address=:443"
+  #     - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+  #     #- "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+  #     - "--certificatesresolvers.myresolver.acme.email=postmaster@example.com"
+  #     - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+  #   ports:
+  #     - "443:443"
+  #     - "8080:8080"
+  #   volumes:
+  #     - "./letsencrypt:/letsencrypt"
+  #     - "/var/run/docker.sock:/var/run/docker.sock:ro"
